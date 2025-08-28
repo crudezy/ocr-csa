@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PDF Parser</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="main-content">
+        <div class="page-header">
+            <h1>PDF Parser</h1>
+            <p>Upload Purchase Order (PO) dalam format PDF dan ekstrak data secara otomatis</p>
+        </div>
+
+        <div class="container">
+            <h2>Upload Purchase Order</h2>
+            <p class="subtitle">Pilih vendor dan upload file PDF untuk memulai proses parsing</p>
+
+            <form id="upload-form">
+                <label for="vendor">Pilih Vendor:</label>
+                <div class="custom-select-wrapper">
+                    <select name="vendor" id="vendor" style="display: none;">
+                        <option value="">Pilih vendor...</option>
+                        <option value="AEON">AEON</option>
+                        <option value="TOSERBA YOGYA/GRIYA">YOGYA</option>
+                        <option value="SAT">SAT (Alfamart)</option> 
+                        <option value="LOTTE">Lotte Mart</option>
+                        <option value="HYPERMART" disabled>Hypermart (segera)</option>
+                    </select>
+                    <div class="select-selected">Pilih vendor...</div>
+                    <div class="select-items select-hide">
+                        <div data-value="AEON">AEON</div>
+                        <div data-value="TOSERBA YOGYA/GRIYA">YOGYA</div>
+                        <div data-value="SAT">SAT (Alfamart)</div>
+                        <div data-value="LOTTE">Lotte Mart</div>
+                        <div class="disabled" data-value="HYPERMART">Hypermart <small>(segera)</small></div>
+                    </div>
+                </div>
+
+                <label for="file">Upload File PDF</label>
+                <label for="file" class="file-drop-area">
+                    <div id="initial-prompt">
+                        <div class="upload-icon">↑</div>
+                        <div class="main-text">Drop File PDF di sini atau klik untuk pilih</div>
+                        <div class="sub-text">Format yang didukung: PDF (maksimal 10MB)</div>
+                    </div>
+                    <div id="selected-file-info" style="display: none;">
+                        <div class="file-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" class="bi bi-file-earmark-text" viewBox="0 0 16 16">
+                                <path d="M5.5 7a.5.5 0 0 0 0 1h5a.5.5 0 0 0 0-1h-5zM5 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 2a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1h-2a.5.5 0 0 1-.5-.5z"/>
+                                <path d="M9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4.5L9.5 0zm0 1v2A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5z"/>
+                            </svg>
+                        </div>
+                        <div class="file-details">
+                            <span id="file-name">NAMA_FILE.pdf</span>
+                            <span id="file-size">0.00 MB</span>
+                        </div>
+                    </div>
+                </label>
+                <input type="file" name="file" id="file" required>
+                
+                <button type="submit" id="submit-btn">Proses PDF</button>
+            </form>
+        </div>
+
+        <div class="results-container">
+            <h2>Hasil Parsing:</h2>
+            <pre id="result">Hasil akan ditampilkan di sini...</pre>
+        </div>
+    </main>
+    
+<script>
+    // Pilih elemen-elemen yang dibutuhkan dari halaman
+    const form = document.getElementById('upload-form');
+    const resultElement = document.getElementById('result');
+    const submitButton = document.getElementById('submit-btn');
+    const fileInput = document.getElementById('file');
+    const dropArea = document.querySelector('.file-drop-area');
+    const initialPrompt = document.getElementById('initial-prompt');
+    const selectedFileInfo = document.getElementById('selected-file-info');
+
+    // --- BARU: Fungsi untuk menampilkan notifikasi (toast) ---
+    function showToast(message) {
+        // 1. Buat elemen div baru untuk toast
+        const toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.innerHTML = message;
+
+        // 2. Tambahkan ke body
+        document.body.appendChild(toast);
+
+        // 3. Hapus toast setelah beberapa detik
+        setTimeout(() => {
+            // Tambahkan class untuk animasi fade out
+            toast.classList.add('fade-out');
+            // Hapus elemen dari DOM setelah animasi selesai
+            toast.addEventListener('animationend', () => toast.remove());
+        }, 4000); // Notifikasi akan hilang setelah 4 detik
+    }
+
+    // --- BARU: Fungsi untuk mengubah byte menjadi KB/MB ---
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+    
+    // --- BARU: Event listener untuk input file ---
+    fileInput.addEventListener('change', function() {
+        // Cek apakah ada file yang dipilih
+        if (fileInput.files.length > 0) {
+            const file = fileInput.files[0];
+            
+            // 1. Ubah tampilan drop area untuk menunjukkan file yang dipilih
+            initialPrompt.style.display = 'none'; // Sembunyikan teks awal
+            
+            // Isi info file yang dipilih
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatBytes(file.size);
+            
+            selectedFileInfo.style.display = 'flex'; // Tampilkan info file
+
+            // 2. Tampilkan notifikasi toast
+            const toastMessage = `
+                <strong>File berhasil dipilih</strong>
+                <p>${file.name} siap untuk diproses</p>
+            `;
+            showToast(toastMessage);
+        }
+    });
+
+    // Event listener untuk submit form (tetap sama)
+    form.addEventListener('submit', function(event) {
+        event.preventDefault(); 
+        
+        resultElement.textContent = 'Sedang memproses, mohon tunggu...';
+        submitButton.textContent = 'Processing...';
+        submitButton.disabled = true;
+
+        const formData = new FormData(form);
+
+        fetch('/upload', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                resultElement.textContent = `Error: ${data.error}`;
+            } else {
+                resultElement.textContent = JSON.stringify(data, null, 2);
+            }
+        })
+        .catch(error => {
+            resultElement.textContent = `Terjadi kesalahan jaringan: ${error}`;
+        })
+        .finally(() => {
+            submitButton.textContent = 'Proses PDF';
+            submitButton.disabled = false;
+        });
+    });
+
+    // --- LOGIKA UNTUK CUSTOM DROPDOWN ---
+
+    // 1. Pilih semua elemen yang dibutuhkan
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    const selected = wrapper.querySelector('.select-selected');
+    const optionsList = wrapper.querySelector('.select-items');
+    const options = optionsList.querySelectorAll('div');
+    const realSelect = wrapper.querySelector('select');
+
+    // 2. Event listener saat trigger di-klik
+    selected.addEventListener('click', function() {
+        // Toggle (buka/tutup) daftar opsi
+        optionsList.classList.toggle('select-hide');
+        // Toggle animasi panah
+        selected.classList.toggle('select-arrow-active');
+    });
+
+    // 3. Event listener untuk setiap opsi
+    options.forEach(option => {
+        option.addEventListener('click', function(e) {
+            // Hentikan jika opsi disabled
+            if (option.classList.contains('disabled')) {
+                e.stopPropagation();
+                return;
+            }
+
+            // Update teks di trigger
+            selected.textContent = this.textContent;
+            
+            // Update value di <select> asli yang tersembunyi
+            realSelect.value = this.getAttribute('data-value');
+            
+            // Tutup daftar opsi
+            optionsList.classList.add('select-hide');
+            selected.classList.remove('select-arrow-active');
+        });
+    });
+
+    // 4. Event listener untuk menutup dropdown saat klik di luar area
+    window.addEventListener('click', function(e) {
+        if (!wrapper.contains(e.target)) {
+            optionsList.classList.add('select-hide');
+            selected.classList.remove('select-arrow-active');
+        }
+    });
+</script>
+
+</body>
+</html>
