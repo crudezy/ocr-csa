@@ -70,8 +70,8 @@ def upload_file():
                     cursor = cnxn.cursor()
                     
                     sql_insert_query = """
-                        INSERT INTO PurchaseOrderItems (vendor, source_file, sku, deskripsi, qty, uom, harga, discount)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+                        INSERT INTO PurchaseOrderItems (vendor, source_file, sku, deskripsi, qty, uom, harga, discount, po_number)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
                     """
                     
                     for item in hasil_akhir:
@@ -79,7 +79,7 @@ def upload_file():
                                        vendor, file.filename, item.get('sku'),
                                        item.get('deskripsi'), item.get('qty'),
                                        item.get('uom'), item.get('harga'),
-                                       item.get('discount', 0.0))
+                                       item.get('discount', 0.0), item.get('po_number'))
                     cnxn.commit()
                     print("SUKSES: Data berhasil disimpan ke database.")
                 except pyodbc.Error as db_error:

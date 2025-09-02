@@ -3,7 +3,7 @@ import fitz
 # ==========================================================
 # GANTI NAMA FILE & NOMOR HALAMAN SESUAI KEBUTUHAN
 # ==========================================================
-NAMA_FILE_PDF = 'PO_AEON.pdf'
+NAMA_FILE_PDF = 'PO_Lotte.pdf'
 NOMOR_HALAMAN = 1
 # ==========================================================
 
